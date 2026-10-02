@@ -1,0 +1,5 @@
+/* フェーズ 4 で UI と一緒に作り込む。今は動作確認だけできる最小限。 */
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}

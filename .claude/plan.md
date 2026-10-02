@@ -1,0 +1,184 @@
+# 型貴族 実装計画
+
+焼き鳥の状態を TypeScript の型で表現する、焼き鳥屋さんゲーム。社内開発コンテスト向け。
+
+## 目的
+
+- TypeScript の型システム（判別可能なユニオン型、型ガード、ユーティリティ型）を、手を動かして身につける
+- 「不正な状態は型で表現できない」という設計を、ゲームという分かりやすい形で見せる
+- 発表では「Ruby ならこう書くところを、TS ではこう型で守れる」という比較をストーリーにする
+
+## 分担
+
+| 領域 | 担当 | 理由 |
+|---|---|---|
+| 型定義、状態遷移、型ガード、注文ロジック | 自分 | 型の学びが最も濃い部分 |
+| ロジックのテスト | 自分 | 型と振る舞いの両方を確かめる練習になる |
+| ドロップ時の分岐処理（`drop()`） | 自分 | 型の絞り込み（narrowing）が一番出てくる、UI とロジックの境界 |
+| 描画、ドラッグ操作、canvas（炭火・煙）、CSS、音、猫のアニメーション | AI | 型の学びが少なく、見た目の作り込みに時間がかかる部分 |
+
+ルールとして、AI に作ってもらうコードは `src/ui/` 以下だけにし、`src/domain/` と `src/game/` には手を入れてもらわない。UI はロジックの関数を呼ぶだけ、という境界を守る。
+
+## 技術スタック
+
+- Vite + TypeScript（フレームワークなしの素の DOM）
+- Vitest（ロジックのテスト）
+- canvas 2D（炭火と煙）、Web Audio（焼ける音）
+- tsconfig は `strict` に加えて `noUncheckedIndexedAccess`、`noImplicitReturns`、`noFallthroughCasesInSwitch`、`verbatimModuleSyntax` を有効にする
+
+## ディレクトリ構成
+
+```
+kata-kizoku/
+├── index.html
+├── tsconfig.json
+├── vite.config.ts
+├── src/
+│   ├── domain/          ← 自分
+│   │   ├── types.ts       状態の型、CookProfile、Order、ServeResult
+│   │   ├── skewer.ts      遷移関数、型ガード、表示用の typeName
+│   │   └── orders.ts      注文の生成、残り時間
+│   ├── game/            ← 自分
+│   │   ├── state.ts       ゲーム全体の状態（スコア、注文、串の一覧）
+│   │   └── drop.ts        ドロップ先ごとの分岐
+│   ├── ui/              ← AI
+│   │   ├── render.ts      串・伝票・型ビューの描画
+│   │   ├── drag.ts        Pointer Events によるドラッグ
+│   │   ├── grill.ts       炭火と煙の canvas
+│   │   ├── cat.ts         猫のリアクション
+│   │   └── audio.ts       焼ける音、効果音
+│   ├── main.ts            起動とゲームループ
+│   └── style.css
+└── tests/
+    └── domain/
+        ├── skewer.test.ts
+        └── orders.test.ts
+```
+
+## 型設計の要点
+
+状態は `status` を判別子にしたユニオン型で表す。状態ごとに持てるフィールドを変えることで、ありえない状態を作れないようにする。
+
+```ts
+type Skewer = Raw | Grilling | Undercooked | Perfect | Burnt;
+
+type Grillable  = Raw | Undercooked;
+type Unseasoned = Perfect & { readonly seasoning: null };
+type Seasoned   = Perfect & { readonly seasoning: Seasoning };
+type CatSafe    = Unseasoned & { readonly kind: Exclude<Kind, "negima"> };
+```
+
+遷移関数は「型 → 型」の純粋関数にする。引数の型が「その操作をしてよい状態」を表す。
+
+| 関数 | 引数 | 戻り値 |
+|---|---|---|
+| `placeOnGrill` | `Grillable` | `Grilling` |
+| `tick` | `Grilling`, 火力, 経過秒 | `Grilling \| Burnt` |
+| `flip` | `Grilling` | `Grilling` |
+| `takeOff` | `Grilling` | `Undercooked \| Perfect \| Burnt` |
+| `season` | `Unseasoned`, `Seasoning` | `Seasoned` |
+| `serve` | `Seasoned`, `Order` | `ServeResult` |
+| `feedCat` | `CatSafe` | `void` |
+
+UI から渡ってくるのは `Skewer`（どの状態か分からない値）なので、`isGrillable`、`isUnseasoned`、`isSeasoned`、`isCatSafe` の型ガードで絞り込んでから遷移関数を呼ぶ。`switch` の `default` では `assertNever` を使い、状態を増やしたときの書き忘れをコンパイラに検出させる。
+
+## フェーズ
+
+見積もりは合計 20〜30 時間。集中して作業できるのが 1 日 6 時間程度なら 4〜5 日。
+
+### フェーズ 0：環境構築（1〜2 時間）
+
+- [ ] `npm create vite@latest` で vanilla-ts テンプレートを作る
+- [ ] tsconfig に厳しめのオプションを追加する
+- [ ] Vitest を入れて、空のテストが通ることを確認する
+- [ ] 上のディレクトリ構成を作る
+
+完了条件：`npm run dev` と `npx vitest` が動く。
+
+### フェーズ 1：型定義（2〜3 時間）
+
+- [ ] `Kind` を `as const` の配列から導出する
+- [ ] `Raw`、`Grilling`、`Undercooked`、`Perfect`、`Burnt` を定義する
+- [ ] `Grillable`、`Unseasoned`、`Seasoned`、`CatSafe` を定義する
+- [ ] `CookProfile`、`Order`、`ServeResult` を定義する
+- [ ] 「生の串に `front` を書くとエラーになる」ことを実際に試して確かめる
+
+完了条件：`tsc --noEmit` が通り、ありえない状態を書こうとすると型エラーになる。
+
+### フェーズ 2：状態遷移と型ガード（4〜6 時間）
+
+- [ ] `PROFILES: Record<Kind, CookProfile>` で串の種類ごとの焼け方を定義する
+- [ ] `placeOnGrill`、`tick`、`flip`、`takeOff`、`season`、`serve` を実装する
+- [ ] 型ガード 4 つを実装する
+- [ ] `quality()` で焼き加減の点数を出す
+- [ ] 猫に断られる理由を返す `catRefusal()` を実装する
+- [ ] `typeName()` と `availableActions()` を `assertNever` 付きで実装する
+- [ ] `orders.ts` で注文の生成と残り時間の計算を実装する
+
+完了条件：すべての関数が `any` なしで書けていて、`tsc` が通る。
+
+### フェーズ 3：ロジックのテスト（2〜3 時間）
+
+- [ ] 生 → 焼き中 → 焼き上がり → 味付け → 提供、の一連の流れ
+- [ ] 焼きすぎると `Burnt` になる境界値
+- [ ] 片面だけ焼いて下ろすと `Undercooked` になる
+- [ ] 注文と種類や味付けが違うと `ServeResult` が `ok: false` になる
+- [ ] ねぎまは `isCatSafe` が `false` になる
+- [ ] `// @ts-expect-error` を使って「生の串は `serve` に渡せない」ことをテストに残す
+
+完了条件：テストがすべて通る。`@ts-expect-error` のテストで型の制約そのものも検証できている。
+
+### フェーズ 4：AI に UI を作ってもらう（2〜3 時間）
+
+フェーズ 1〜3 のコードを AI に渡し、`src/ui/` 以下を作ってもらう。依頼文の例：
+
+> `src/domain/` の型と関数を使って、`src/ui/` 以下に焼き鳥ゲームの UI を作ってください。`src/domain/` と `src/game/` は変更しないでください。ドロップが起きたら `src/game/drop.ts` の `drop(entity, target)` を呼ぶだけにしてください。描画、ドラッグ、炭火と煙の canvas、猫のアニメーション、音をお願いします。見た目はプロトタイプと同じ、藍色の暖簾と炭火の配色で。
+
+- [ ] 渡す前に `drop()` のシグネチャと `DropTarget` 型だけ先に決めておく
+- [ ] 出てきたコードが `domain` に手を入れていないか確認する
+- [ ] `any` や型アサーション（`as`）が多用されていないか確認する
+
+完了条件：ドロップ以外の操作（ドラッグ、描画、焼ける様子）が画面で動く。
+
+### フェーズ 5：`drop()` の実装（3〜4 時間）
+
+- [ ] `DropTarget` を判別可能なユニオン型で定義する（焼き台、まな板、味付け、捨てる、猫、伝票、なし）
+- [ ] ドロップ先で `switch` し、型ガードで串の状態を絞り込んでから遷移関数を呼ぶ
+- [ ] 焼き台から離すときは先に `takeOff` する
+- [ ] 型が合わないときはコンパイラ風のエラーメッセージをログに出す
+- [ ] 招き猫効果（猫にあげると次のお客さんがすぐ来る）を入れる
+
+完了条件：一連の操作がすべて画面上でつながり、型エラーのメッセージが正しく出る。
+
+### フェーズ 6：結合と調整（4〜6 時間）
+
+- [ ] 焼ける速さ、火力の差、お客さんの待ち時間を遊びながら調整する
+- [ ] スマホのタッチ操作で動くか確認する
+- [ ] 閉店画面の集計（売上、提供数、帰った客、型エラー回数、猫にあげた本数）
+- [ ] README に型設計の説明を書く
+
+完了条件：最初から最後まで遊べて、他の人に触ってもらっても迷わない。
+
+## 発表で見せたいポイント
+
+1. 型ビュー：串を選ぶと、今の状態が `const skewer: Grilling = {...}` の形でリアルタイムに表示される
+2. 型エラー：生焼けの串を伝票に出すと、コンパイラそのものの言い回しで怒られる
+3. `CatSafe`：`Exclude` とインターセクションで「猫にあげてよい串」を型で表す。ネギ類は本当に猫に毒なので、型が現実の安全ルールを守っている、という話ができる
+4. `assertNever`：状態を一つ増やして、書き忘れた `case` がコンパイラに指摘される様子をライブで見せる
+5. Rails との比較：Ruby ではバリデーションやテストで実行時に守っていたものが、TS では書いた瞬間に守られる
+
+## リスクと対策
+
+| リスク | 対策 |
+|---|---|
+| 型エラーの意味が分からず止まる | エラーメッセージを AI に貼って「なぜ」を説明してもらう。答えのコードはもらわない |
+| AI の UI コードが `domain` に入り込む | ディレクトリで境界を分け、依頼文で明示する。差分を必ず確認する |
+| 見た目の作り込みに時間を取られる | UI の調整は AI に任せ、自分の時間はロジックとテストに使う |
+| ゲームバランスの調整が終わらない | 数値は `PROFILES` に集約して、コードを触らず調整できるようにする |
+
+## 余裕があれば追加したいもの
+
+- 焼いている途中にタレを塗る工程（`Grilling` に `basted` を持たせる）
+- お客さんのランク（型平民、型男爵、型公爵）
+- 串の種類の追加（`Kind` を増やすと `Record` の設定漏れが型エラーになることを見せられる）
+- XState などを使った状態機械との比較

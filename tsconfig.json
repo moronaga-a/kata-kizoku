@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "types": ["vite/client"],
+
+    /* 計画で指定した厳しめのオプション */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+
+    /* 不要なコードをコンパイラに見つけさせる */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "noEmit": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "useDefineForClassFields": true
+  },
+  "include": ["src", "tests", "vite.config.ts"]
+}
