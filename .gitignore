@@ -22,3 +22,6 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+
+# 発表用の個人メモ。計画（.claude/plan.md）とは別で、共有しない
+.claude/presentation_memo.md

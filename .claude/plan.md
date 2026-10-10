@@ -86,24 +86,59 @@ UI から渡ってくるのは `Skewer`（どの状態か分からない値）�
 
 見積もりは合計 20〜30 時間。集中して作業できるのが 1 日 6 時間程度なら 4〜5 日。
 
-### フェーズ 0：環境構築（1〜2 時間）
+### フェーズ 0：環境構築（1〜2 時間）✅ 完了
 
-- [ ] `npm create vite@latest` で vanilla-ts テンプレートを作る
-- [ ] tsconfig に厳しめのオプションを追加する
-- [ ] Vitest を入れて、空のテストが通ることを確認する
-- [ ] 上のディレクトリ構成を作る
+- [x] Vite + TypeScript の足場を作る
+  - `npm create vite@latest` は使わなかった。既に `.git` と `.claude/plan.md` が
+    あるディレクトリで実行すると対話プロンプトが出て、選択を誤ると消えるため、
+    設定ファイルを直接書いた
+- [x] tsconfig に厳しめのオプションを追加する
+  - 計画の 4 つに加えて `noUnusedLocals` / `noUnusedParameters` も有効にした
+- [x] Vitest を入れて、空のテストが通ることを確認する（`tests/smoke.test.ts`）
+- [x] 上のディレクトリ構成を作る
 
-完了条件：`npm run dev` と `npx vitest` が動く。
+完了条件：`npm run dev` と `npx vitest` が動く。→ 両方とも確認済み。
 
-### フェーズ 1：型定義（2〜3 時間）
+導入したバージョン：TypeScript 7.0 / Vite 8.3 / Vitest 5.0。
+TypeScript 7 はコンパイラが Go で書き直されたネイティブ版だが、今の tsconfig では問題なし。
 
-- [ ] `Kind` を `as const` の配列から導出する
-- [ ] `Raw`、`Grilling`、`Undercooked`、`Perfect`、`Burnt` を定義する
-- [ ] `Grillable`、`Unseasoned`、`Seasoned`、`CatSafe` を定義する
-- [ ] `CookProfile`、`Order`、`ServeResult` を定義する
-- [ ] 「生の串に `front` を書くとエラーになる」ことを実際に試して確かめる
+### フェーズ 1：型定義（2〜3 時間）✅ 完了
 
-完了条件：`tsc --noEmit` が通り、ありえない状態を書こうとすると型エラーになる。
+- [x] `Kind` を `as const` の配列から導出する
+- [x] `Raw`、`Grilling`、`Undercooked`、`Perfect`、`Burnt` を定義する
+- [x] `Grillable`、`Unseasoned`、`Seasoned`、`CatSafe` を定義する
+- [x] `CookProfile`、`Order`、`ServeResult` を定義する
+- [x] 「生の串に `front` を書くとエラーになる」ことを実際に試して確かめる
+  - 4 パターンで確認（余計なプロパティ / 足りないプロパティ / ねぎまを `CatSafe` に /
+    `ok: false` に `revenue`）
+
+完了条件：`tsc --noEmit` が通り、ありえない状態を書こうとすると型エラーになる。→ 達成。
+
+#### 実装時に決めたこと（計画になかった判断）
+
+- **`Side` 型を追加**：`"front" | "back"`。`facing` と `heatSeconds` の 2 箇所で使う。
+  `Kind` と違い増えないので `as const` からは導出していない
+- **焼き加減はラベルではなく量で持つ**：`Grilling` は
+  `heatSeconds: Readonly<Record<Side, number>>` を持ち、生焼け・完璧・焦げの判定は
+  `takeOff()` が `CookProfile` と突き合わせて行う。
+  ラベルを直接持たせると `tick()` が積み上げる先がなく時間が進まない、
+  かつ「焦げながら焼き中」が書けてしまうため
+- **`Perfect.seasoning` は `Seasoning | null`**：`Seasoning` だけにすると
+  `Unseasoned = Perfect & { seasoning: null }` が `never` に潰れて一生作れなくなる。
+  オプショナル（`?:`）では `undefined` になるので救われない
+- **`Order.placedAt` は `number`（タイムスタンプ）**：`Date` はメソッドで中身を
+  書き換えられ、`Readonly<Date>` でも防げないため。残り時間は計算で出す
+- **`ServeResult` の失敗理由は「種類違い」「味付け違い」の 2 つだけ**：
+  `serve()` の引数が `Seasoned` なので、生焼け・焦げ・味付けなしは渡せず、
+  実行時に判定する必要がない。それらを弾くのは `drop()` の仕事
+
+#### 保留にした判断（フェーズ 2 で決める）
+
+- 客の待ち時間（制限時間）をどこに持つか。`Order` のフィールドか、全員一律の定数か
+- `Order.seasoning` の `null` の意味（味付け指定なし / 素焼きの注文）
+- `heatSeconds` を `Record<Side, number>` にしたが、`tick()` で
+  `{ ...s.heatSeconds, [s.facing]: v }` の型が通らなければ
+  `frontHeatSeconds` / `backHeatSeconds` と平らに持つ形に戻す
 
 ### フェーズ 2：状態遷移と型ガード（4〜6 時間）
 
