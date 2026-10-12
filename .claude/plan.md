@@ -136,9 +136,10 @@ TypeScript 7 はコンパイラが Go で書き直されたネイティブ版だ
 
 - 客の待ち時間（制限時間）をどこに持つか。`Order` のフィールドか、全員一律の定数か
 - `Order.seasoning` の `null` の意味（味付け指定なし / 素焼きの注文）
-- `heatSeconds` を `Record<Side, number>` にしたが、`tick()` で
-  `{ ...s.heatSeconds, [s.facing]: v }` の型が通らなければ
-  `frontHeatSeconds` / `backHeatSeconds` と平らに持つ形に戻す
+- ~~`heatSeconds` を `Record<Side, number>` にしたが、`tick()` で
+  `{ ...s.heatSeconds, [s.facing]: v }` の型が通らなければ平らに持つ形に戻す~~
+  → **フェーズ 2 で解決。型は通った。** キーが union の計算プロパティでも
+  `Readonly<Record<Side, number>>` に代入できる。読みも書きも分岐なしで済む形になった
 
 ### フェーズ 2：状態遷移と型ガード（4〜6 時間）
 
