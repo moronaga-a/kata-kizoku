@@ -12,6 +12,10 @@ import type {
   Seasoned,
   Order,
   ServeResult,
+  Skewer,
+  CatSafe,
+  Action,
+  CatRefusalReason,
 } from "./types";
 
 
@@ -60,6 +64,24 @@ function scoreFor(seconds: number, profile: CookProfile): number {
   const span = profile.burntFromSeconds - profile.perfectFromSeconds;
   const progress = Math.min(Math.max((seconds - profile.perfectFromSeconds) / span, 0), 1);
   return (1 - progress) * 10;
+}
+
+/**
+ * 到達しないはずの分岐に来たことを、コンパイル時に検出するための関数。
+ *
+ * 引数の型が never なのがポイント。never は「値が存在しえない型」なので、
+ * 呼び出し側に値が残っていれば代入できずコンパイルエラーになる。
+ * switch で全ケースを書き切ったときだけ、残りがゼロ = never となって通る。
+ *
+ * つまり実行時ではなくコンパイル時に効く仕掛けで、正しく書けていれば throw は一度も発火しない。
+ * 発火するとしたら as で型を騙したか、外部から想定外の値が流れてきたとき。
+ * そういう異常時ほどメッセージが頼りになるので、値ごと出している。
+ *
+ * 焼き鳥に固有のロジックではなく、判別可能なユニオン型なら何にでも使える汎用の部品。
+ * drop.ts からも使うようになったら別ファイルに移してよい。
+ */
+function assertNever(x: never): never {
+  throw new Error(`想定外の状態: ${JSON.stringify(x)}`);
 }
 
 // =========== 遷移関数　============
@@ -224,5 +246,140 @@ function quality(skewer: Perfect): number {
   return (frontScore + backScore) / 2;
 }
 
+// =========== 型ガード ============
+//
+// UI から渡ってくるのは Skewer（どの状態か分からない値）なので、
+// 遷移関数に渡す前にここで絞り込む。drop() がこれらを使う。
+//
+// 戻り値が boolean ではなく `skewer is T` 。boolean だと
+// boolean だと if (isGrillable(skewer)) { placeOnGrill(skewer); }   // skewer は Skewer のままとなって通らない。
+// `skewer is T` と書くと「true を返したら引数は T だと思ってよい」とコンパイラに伝えられる。
+// 関数の中でしか効かない絞り込みを、関数の外へ持ち出す仕組み。
+//
+// ⚠️ ここは型が守ってくれない場所。TypeScript は中身が述語と合っているかを検証しない。
+//   function isGrillable(s: Skewer): s is Grillable { return true; }　これもコンパイルが通る。
 
-export { flip, isBurnt, tick, takeOff, placeOnGrill, season, quality, serve };
+/** 焼き台に乗せられるか。生（これから焼く）と生焼け（焼き直す）の2つ。 */
+function isGrillable(skewer: Skewer): skewer is Grillable {
+  return skewer.status === "undercooked" || skewer.status === "raw";
+}
+
+/** 焼き上がっていて、まだ味付けしていないか。 */
+function isUnseasoned(skewer: Skewer): skewer is Unseasoned {
+  return skewer.status === "perfect" && skewer.seasoning === null;
+}
+
+/** 焼き上がっていて、味付け済みか。serve() に渡せるのはこれだけ。 */
+function isSeasoned(skewer: Skewer): skewer is Seasoned {
+  return skewer.status === "perfect" && skewer.seasoning !== null;
+}
+
+/** 猫にあげてよいか。塩分もネギ類もどちらも猫に毒。 */
+function isCatSafe(skewer: Skewer): skewer is CatSafe {
+  return isUnseasoned(skewer) && skewer.kind !== "negima";
+}
+
+// =========== 表示用 ============
+/**
+ * 串の今の状態を、TypeScript の型名として返す。型ビュー用。
+ *
+ * 画面に `const skewer: Grilling = {...}` の形で出して、操作するたびに
+ * 型が移り変わる様子を見せるために使う。
+ *
+ * "perfect" の枝だけ中でさらに分岐しているのは、Unseasoned / Seasoned / CatSafe が自分の status を持たないから。
+ * これらは Perfect の切り出し（Perfect & {...}）であって新しい状態ではないので case には書けない
+ * */
+function typeName(skewer: Skewer): string {
+  switch (skewer.status) {
+    case "raw":
+      return "Raw";
+    case "grilling":
+      return "Grilling";
+    case "undercooked":
+      return "Undercooked";
+    case "perfect":
+      if (skewer.seasoning !== null)
+        return "Seasoned";
+      else if (isCatSafe(skewer))
+        return "CatSafe";
+      else
+        return "Unseasoned";
+    case "burnt":
+      return "Burnt";
+    default:
+      return assertNever(skewer);
+  }
+}
+
+/**
+ * その状態でできる操作の一覧。UI のボタンの出し分けに使う。
+ *
+ * 型による制約と、同じことを別の形で表している関数。
+ * 「生の串は味付けできない」は season(s: Unseasoned) の引数の型が守っていて、コードとして書く必要がない。
+ * ただしそれは「書けなくする」だけで、画面にボタンを出す／出さないは別の話なので、ここでリストとして持つ。
+ *
+ * 各要素が正しいかは「その Action に対応する関数に、この状態の串を渡せるか」で確かめられる。
+ *
+ * "grilling" に discard がないのは、焼き台の上の串は直接捨てられない仕様にしたため。
+ * 一度下ろしてから捨てる。遊んでみて面倒なら足す。
+ */
+function availableActions(skewer: Skewer): Action[] {
+  switch (skewer.status) {
+    case "raw":
+      return ["placeOnGrill", "discard"];
+    case "grilling":
+      return ["flip", "takeOff"];
+    case "undercooked":
+      return ["placeOnGrill", "discard"];
+    case "perfect": {
+      const actions: Action[] = [];
+      if (isCatSafe(skewer))
+        actions.push("feedCat");
+      if (isUnseasoned(skewer))
+        actions.push("season");
+      if (isSeasoned(skewer))
+        actions.push("serve");
+      actions.push("discard");
+      return actions;
+    }
+    case "burnt":
+      return ["discard"];
+    default:
+      return assertNever(skewer);
+  }
+}
+
+/**
+ * 猫にあげられない理由を返す。あげてよければ null。
+ *
+ * isCatSafe と対になる関数。isCatSafe が「あげてよいか」を yes/no で答えて
+ * コンパイラの絞り込みに使われるのに対して、こちらは「なぜダメなのか」をプレイヤーに伝えるために使う。
+ * 型で守っている内容を、人間向けに言葉にする側。
+ *
+ */
+function catRefusal(skewer: Skewer): CatRefusalReason | null {
+  if (isCatSafe(skewer))        return null;
+  if (skewer.kind === "negima") return "negima";
+  if (isSeasoned(skewer))       return "seasoned";
+  return "not-ready";
+}
+
+// =========== export ============
+export {
+  flip,
+  isBurnt,
+  tick,
+  takeOff,
+  placeOnGrill,
+  season,
+  quality,
+  serve,
+  isGrillable,
+  isUnseasoned,
+  isSeasoned,
+  isCatSafe,
+  typeName,
+  assertNever,
+  availableActions,
+  catRefusal,
+};

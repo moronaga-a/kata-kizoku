@@ -23,6 +23,8 @@ export type {
   CookProfile,
   Order,
   ServeResult,
+  CatRefusalReason,
+  Action
 };
 
 /**
@@ -31,6 +33,28 @@ export type {
  * Kind と違って as const の配列から導出していないのは、串の表裏は増えないから。
  */
 type Side = "front" | "back";
+
+/**
+ * availableActions() が返すもの＝その状態でできることの一覧
+ *
+ * UI のボタンの出し分けに使う
+ * フェーズ 5 の DropTarget（ドロップ先）と対応する
+ *
+ * "discard" だけ少し性格が違い、skewer.ts の遷移関数と対応する関数がない
+ */
+type Action = "placeOnGrill" | "flip" | "takeOff" | "season" | "serve" | "feedCat" | "discard";
+
+/**
+ * 猫にあげられない理由。catRefusal() が返す。あげてよい場合は null なのでここには含めない。
+ *
+ * セリフそのものではなく理由のコードなので、日本語の文面や演出は UI 側で持つ。
+ * 文言を変えるために domain を触らなくて済むようにするため。
+ *
+ *   negima    ネギ類は猫に毒（溶血性貧血を起こす）。この型設計の出発点になった現実のルール
+ *   seasoned  塩分が猫に良くない
+ *   not-ready 焼けていない・焦げているなど、そもそも食べ物として出せない
+ */
+type CatRefusalReason = "negima" | "seasoned" | "not-ready";
 
 /**
  * 生の串。まだ焼き台に乗っていない。
