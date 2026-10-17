@@ -16,6 +16,7 @@ import type {
   CatSafe,
   Action,
   CatRefusalReason,
+  Raw,
 } from "./types";
 
 
@@ -39,6 +40,33 @@ const PRICES: Record<Kind, number> = {
   "momo": 120,
   "kawa": 80,
 };
+
+// =========== 生成 ============
+
+/**
+ * 串 id の採番用カウンタ。
+ *
+ * 採番の責任を呼び出し側に移しても、今度はそちらが純粋でなくなるだけなので、
+ * ここに閉じ込めてある。orders.ts の nextOrderId と同じ扱い。
+ *
+ * 連番にしているのは UUID より読みやすいため。ログに sk-3 と出れば 3 本目だと分かる。
+ */
+let nextSkewerId = 0;
+
+/**
+ * 生の串を1本作る。ネタケースから取り出すときに使う。
+ *
+ * id が要るのは UI が串を識別するため。焼き台に複数本並んだとき、
+ * 同じ種類・同じ焼き加減の串を DOM 要素と対応付ける鍵がないと区別できない。
+ * kind と同じく、生から焦げまで一度も変わらない。
+ *
+ * この関数にテストを書いていないのは、やっているのが採番して詰めるだけで、
+ * 壊れたらゲームが始まらずすぐ分かるから。createOrder と同じ理由。
+ */
+function createRaw(kind: Kind): Raw {
+  nextSkewerId += 1;
+  return { id: `sk-${nextSkewerId}`, status: "raw", kind };
+}
 
 // =========== ヘルパー　============
 /**
@@ -365,21 +393,31 @@ function catRefusal(skewer: Skewer): CatRefusalReason | null {
 }
 
 // =========== export ============
+// ファイル内のセクションと同じ順に並べてある。
+// export リストを見れば、どのセクションで定義されているかが逆引きできる。
 export {
-  flip,
+  // 生成
+  createRaw,
+  // ヘルパー
   isBurnt,
-  tick,
-  takeOff,
+  // 遷移関数（串の一生の順）
   placeOnGrill,
+  tick,
+  flip,
+  takeOff,
   season,
-  quality,
   serve,
+  // 集計
+  quality,
+  // 型ガード
   isGrillable,
   isUnseasoned,
   isSeasoned,
   isCatSafe,
+  // 表示用
   typeName,
-  assertNever,
   availableActions,
   catRefusal,
+  // 汎用（焼き鳥に固有でない部品）
+  assertNever,
 };

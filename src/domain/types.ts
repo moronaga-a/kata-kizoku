@@ -24,7 +24,9 @@ export type {
   Order,
   ServeResult,
   CatRefusalReason,
-  Action
+  Action,
+  DropTarget,
+  DropResult,
 };
 
 /**
@@ -43,6 +45,69 @@ type Side = "front" | "back";
  * "discard" だけ少し性格が違い、skewer.ts の遷移関数と対応する関数がない
  */
 type Action = "placeOnGrill" | "flip" | "takeOff" | "season" | "serve" | "feedCat" | "discard";
+
+/**
+ * 串をどこに落としたか。drop(skewer, to) の第2引数。
+ *
+ * Action（その状態でできること）とほぼ 1 対 1 で対応する。
+ * Action が「この串に何ができるか」、DropTarget が「どこに落とせばそれが起きるか」。
+ *
+ *   grill  ↔ placeOnGrill    board ↔ takeOff    season ↔ season
+ *   order  ↔ serve           cat   ↔ feedCat    trash  ↔ discard
+ *
+ * flip だけ対応するドロップ先がない。ひっくり返すのはドラッグではなく
+ * 焼き台の串をクリックする操作なので、落とす先が存在しない。
+ *
+ * "none"（どこでもない場所に落とした）も union のメンバーにしてある。
+ * DropTarget | null にすると drop() の switch から漏れるが、メンバーにしておけば
+ * case "none" として書けて assertNever の網羅チェックに乗る。
+ * ドロップ先を増やしたときの書き漏れがコンパイルエラーになる。
+ *
+ * slot（焼き台の何番目の枠か）を Skewer ではなくここが持っているのは、
+ * 串が自分の居場所を知らない設計にしているため。位置は UI とゲーム進行の関心事で、焼き鳥そのものの性質ではない。
+ */
+type DropTarget =
+  | { readonly target: "grill"; readonly slot: number }
+  | { readonly target: "board" }
+  | { readonly target: "season"; readonly seasoning: Seasoning }
+  | { readonly target: "trash" }
+  | { readonly target: "cat" }
+  | { readonly target: "order"; readonly orderId: string }
+  | { readonly target: "none" };
+
+/**
+ * 串をドロップした結果。drop() が返す。UI はこれを見て画面と音を変える。
+ *
+ * 失敗が2種類あるのがこの型の肝。
+ *   type-error   そもそも渡せない串だった（焦げた串を伝票に落とした、など）。
+ *                本来ならコンパイルエラーになる操作を、ゲーム内で再現している。
+ *   wrong-order  渡せたが注文と中身が違った。型では判定できず、実行時に確かめるしかない。
+ * 「型で守れる範囲と守れない範囲」の境界が、そのまま UI のメッセージの出し分けになる。
+ *
+ * 成功側は effect ごとに持つものが違う。串が残るもの（placed / takenOff / seasoned）は
+ * 絞った型で返すので、UI は "placed" の枝で facing があると分かる。
+ * 串が消えるもの（served / fedCat / discarded）は串を返さない。
+ */
+type DropResult =
+  // --- 成功 ---
+  | { readonly ok: true; readonly effect: "placed"; readonly skewer: Grilling }
+  | { readonly ok: true; readonly effect: "takenOff"; readonly skewer: Undercooked | Perfect | Burnt }
+  | { readonly ok: true; readonly effect: "seasoned"; readonly skewer: Seasoned }
+  | { readonly ok: true; readonly effect: "served"; readonly revenue: number; readonly quality: number }
+  | { readonly ok: true; readonly effect: "fedCat" }
+  | { readonly ok: true; readonly effect: "discarded" }
+  | { readonly ok: true; readonly effect: "none" } // 何もない場所で離した。失敗ではなく、串は元の場所に戻るだけ。
+  // --- 失敗 ---
+  // コンパイラ風のメッセージを組み立てる材料を返す。文面そのものは UI が作る。
+  // 「<fn>: 型 '<actual>' の引数を型 '<expected>' のパラメーターに割り当てることはできません」
+  | {
+      readonly ok: false;
+      readonly reason: "type-error";
+      readonly fn: Action;
+      readonly actual: string;
+      readonly expected: string;
+    }
+  | { readonly ok: false; readonly reason: "wrong-order"; readonly mismatch: "wrong-kind" | "wrong-seasoning" };
 
 /**
  * 猫にあげられない理由。catRefusal() が返す。あげてよい場合は null なのでここには含めない。
@@ -178,6 +243,7 @@ type CookProfile = {
  * 串と独立したエンティティ
  */
 type Order = {
+  readonly id: string;
   readonly kind: Kind;
   readonly seasoning: Seasoning;
   readonly placedAt: number;

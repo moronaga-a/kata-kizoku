@@ -63,7 +63,7 @@ describe("串の一生", () => {
     // もも は 25 秒で焼き上がり、50 秒で焦げる（PROFILES）。基本価格は 120 円（PRICES）。
     // 両面ちょうど 25 秒 = 焼けた瞬間なので、焼き加減は満点の 10 点になる。
     const raw: Raw = { id: "test-id", status: "raw", kind: "momo" };
-    const order = createOrder("momo", "salt", 0);
+    const order = createOrder(raw.id, "momo", "salt", 0);
 
     // 焼き台に乗せる。生の串は焼き加減を持たないので 0 から始まる。
     const grilling = placeOnGrill(raw);
@@ -226,13 +226,13 @@ describe("isCatSafe", () => {
 // - 次の行がエラーでない → @ts-expect-error 自体がエラーになる
 describe("serve", () => {
   it("注文と種類が違うと受け取ってもらえない", () => {
-    const order = createOrder("momo", "salt", 0);
+    const order = createOrder("order-1", "momo", "salt", 0);
     const result = serve(seasonedSkewer("negima", "salt"), order);
     expect(result).toEqual({ ok: false, reason: "wrong-kind" });
   });
 
   it("注文と味付けが違うと受け取ってもらえない", () => {
-    const order = createOrder("momo", "salt", 0);
+    const order = createOrder("order-2", "momo", "salt", 0);
     const result = serve(seasonedSkewer("momo", "sauce"), order);
     expect(result).toEqual({ ok: false, reason: "wrong-seasoning" });
   });
@@ -240,7 +240,7 @@ describe("serve", () => {
 
 describe("型による制約", () => {
   it("生の串は serve に渡せない", () => {
-    const order = createOrder("momo", "salt", 0);
+    const order = createOrder("order-3", "momo", "salt", 0);
     // @ts-expect-error 生の串は Seasoned ではないので渡せない
     serve(rawSkewer("momo"), order);
   });

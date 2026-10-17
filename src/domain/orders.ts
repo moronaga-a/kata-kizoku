@@ -4,6 +4,18 @@ import type { Order, Kind, Seasoning } from "./types";
 const PATIENCE_SECONDS = 60; // 顧客が待てる秒数の定数
 
 /**
+ * 注文 id の採番用カウンタ。
+ *
+ * このファイルで唯一、呼ぶたびに結果が変わる（純粋でない）部分。
+ * id は「同じ内容の注文を区別する」ためのものなので、本質的に外から与えるか
+ * 採番するしかない。採番の責任を呼び出し側に持たせても純粋にはならないので、
+ * ここに閉じ込めてある。
+ *
+ * テストは createOrder で id を指定できるため、この採番に依存しない。
+ */
+let nextOrderId = 0;
+
+/**
  * 注文が切れるまでの残り時間（秒）。時間切れ後は 0。
  *
  * now を引数で受け取り、中で Date.now() を呼ばないのは、「残り 3 秒のとき」を
@@ -24,8 +36,9 @@ function remainingSeconds(order: Order, now: number): number {
  * Math.random() が中にあると「ねぎまの塩の注文が来たとき」を試せない。
  * ゲーム本体は randomOrder、テストは createOrder、という使い分けになる。
  */
-function createOrder(kind: Kind, seasoning: Seasoning, placedAt: number): Order {
+function createOrder(id: string, kind: Kind, seasoning: Seasoning, placedAt: number): Order {
   return {
+    id,
     kind,
     seasoning,
     placedAt,
@@ -65,7 +78,8 @@ function pickRandom<T>(items: readonly [T, ...T[]]): T {
 function randomOrder(placedAt: number): Order {
   const kind = pickRandom(KINDS);
   const seasoning = pickRandom(SEASONINGS);
-  return createOrder(kind, seasoning, placedAt);
+  nextOrderId += 1;
+  return createOrder(`order-${nextOrderId}`, kind, seasoning, placedAt);
 }
 
 export { remainingSeconds, createOrder, randomOrder };
