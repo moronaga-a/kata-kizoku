@@ -174,7 +174,7 @@ type CookProfile = {
  */
 type Order = {
   readonly kind: Kind;
-  readonly seasoning: Seasoning | null;
+  readonly seasoning: Seasoning;
   readonly placedAt: number;
 };
 
