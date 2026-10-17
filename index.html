@@ -2,12 +2,126 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>型貴族</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>型貴族 — TypeScript 焼き鳥ゲーム</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+1+Code:wght@400;600&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div id="app"></div>
+    <header class="noren">
+      <h1 class="shop-name"><b>型貴族</b><small>かたきぞく</small></h1>
+      <div class="hud">
+        <div class="hud-item"><span>残り時間</span><output id="time">2:30</output></div>
+        <div class="hud-item"><span>売上</span><output id="score">0</output></div>
+        <button id="mute" class="mute" type="button" aria-pressed="false">音 オン</button>
+      </div>
+    </header>
+
+    <main class="shop">
+      <section class="orders-area" aria-label="注文">
+        <h2 class="area-title">注文伝票（ここに串を出す）</h2>
+        <div id="orders" class="orders empty"></div>
+      </section>
+
+      <section class="bins-area" aria-label="生串">
+        <h2 class="area-title">生串</h2>
+        <div id="bins" class="bins"></div>
+      </section>
+
+      <section class="grill-area">
+        <h2 class="area-title">焼き台（クリックで裏返す）</h2>
+        <div id="grill" class="grill" data-zone="grill">
+          <div class="grill-box">
+            <canvas id="coals" aria-hidden="true"></canvas>
+            <div class="rail rail-top"></div>
+            <div class="rail rail-bottom"></div>
+          </div>
+          <div id="grill-bed" class="grill-bed"></div>
+          <canvas id="smoke" aria-hidden="true"></canvas>
+          <div id="heat-scale" class="heat-scale" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <section class="counter-area counter">
+        <div id="board" class="board" data-zone="board">
+          <h2 class="area-title">まな板</h2>
+          <div id="board-items" class="board-items"></div>
+        </div>
+        <div class="tools">
+          <div class="tool" data-zone="sauce"><div class="pot"></div>タレ壺<small>season()</small></div>
+          <div class="tool" data-zone="salt"><div class="salt-box"></div>塩<small>season()</small></div>
+          <div class="tool" data-zone="trash"><div class="bucket"></div>捨てる<small>discard()</small></div>
+          <div class="tool cat-tool" data-zone="cat">
+            <div id="cat" class="cat" aria-hidden="true">
+              <span id="cat-bubble" class="cat-bubble"></span>
+              <i class="ear ear-l"></i><i class="ear ear-r"></i>
+              <i class="head"><i class="eye eye-l"></i><i class="eye eye-r"></i></i>
+              <i class="body"></i><i class="tail"></i>
+            </div>
+            猫にあげる<small>feedCat()</small>
+          </div>
+        </div>
+      </section>
+
+      <aside class="types-area types" aria-live="polite">
+        <h2>型ビュー</h2>
+        <pre id="type-code"></pre>
+        <h3>この串に呼べる関数</h3>
+        <ul id="type-actions"></ul>
+        <details>
+          <summary>Skewer 型の定義を見る</summary>
+<pre>type Skewer =
+  | Raw | Grilling | Undercooked
+  | Perfect | Burnt;
+
+type Grillable  = Raw | Undercooked;
+type Unseasoned = Perfect &amp; { seasoning: null };
+type Seasoned   = Perfect &amp; { seasoning: Seasoning };
+type CatSafe    = Unseasoned &amp;
+  { kind: Exclude&lt;Kind, "negima"&gt; };
+
+function serve(s: Seasoned, o: Order): ServeResult;</pre>
+        </details>
+        <h3>コンパイラ出力</h3>
+        <ul id="log"></ul>
+      </aside>
+    </main>
+
+    <div id="drag-layer"></div>
+    <div id="toast" class="toast" role="status"></div>
+
+    <div id="start-overlay" class="overlay">
+      <div class="card" role="dialog" aria-labelledby="start-title">
+        <h2 id="start-title">型貴族</h2>
+        <p>串の状態はすべて型で管理されています。型が合わない操作をすると、コンパイラに叱られます。</p>
+        <ol class="steps">
+          <li>左の箱から生串をドラッグして焼き台へ <code>placeOnGrill()</code></li>
+          <li>串をクリックして裏返しながら両面を焼く <code>flip()</code></li>
+          <li>ゲージが緑の帯に入ったら、まな板へ下ろす <code>takeOff()</code></li>
+          <li>タレ壺か塩にドラッグして味付け <code>season()</code></li>
+          <li>注文伝票にドラッグして提供 <code>serve()</code></li>
+        </ol>
+        <p>
+          焼き台は真ん中ほど火が強くなります。味付け前の焼き上がりを猫にあげると、招き猫効果でお客さんがすぐ来ます（ねぎは猫に毒なので、ねぎまはあげられません）。制限時間は
+          2 分 30 秒です。
+        </p>
+        <button id="start-btn" class="primary" type="button">開店する</button>
+      </div>
+    </div>
+
+    <div id="end-overlay" class="overlay" hidden>
+      <div class="card" role="dialog" aria-labelledby="end-title">
+        <h2 id="end-title">閉店です</h2>
+        <dl id="end-stats"></dl>
+        <button id="again-btn" class="primary" type="button">もう一度開店する</button>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

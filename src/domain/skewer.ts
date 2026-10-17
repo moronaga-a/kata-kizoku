@@ -400,6 +400,8 @@ export {
   createRaw,
   // ヘルパー
   isBurnt,
+  // 定数
+  PROFILES,
   // 遷移関数（串の一生の順）
   placeOnGrill,
   tick,
