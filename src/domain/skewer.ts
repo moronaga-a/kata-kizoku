@@ -105,11 +105,11 @@ function placeOnGrill(skewer: Grillable): Grilling {
   // status: string にしていたら、比較しても型は絞り込まれない。
   if (skewer.status === "raw") {
     // 生の串は焼き加減を持たない。ここで 0 から作る。
-    return { status: "grilling", kind: skewer.kind, facing: "front", heatSeconds: { front: 0, back: 0 } };
+    return { id: skewer.id, status: "grilling", kind: skewer.kind, facing: "front", heatSeconds: { front: 0, back: 0 } };
   } else {
     // 焼き直しなので、前回までの焼き加減を引き継ぐ。
     // Undercooked に heatSeconds を持たせておいたのはこのため。
-    return { status: "grilling", kind: skewer.kind, facing: "front", heatSeconds: skewer.heatSeconds };
+    return { id: skewer.id, status: "grilling", kind: skewer.kind, facing: "front", heatSeconds: skewer.heatSeconds };
   }
 }
 
@@ -139,7 +139,7 @@ function tick(skewer: Grilling, firePower: number, elapsedSeconds: number): Gril
   if (isBurnt(updatedSkewer.heatSeconds, profile)) {
     // 状態が変わる = フラグを立てるのではなく、その状態の形に作り直す。
     // facing を引き継がないのは、焦げた串に「今どっちが下か」が意味を持たないから。
-    return { status: "burnt", kind: skewer.kind, heatSeconds: updatedSkewer.heatSeconds };
+    return { id: skewer.id, status: "burnt", kind: skewer.kind, heatSeconds: updatedSkewer.heatSeconds };
   }
 
   return updatedSkewer;
@@ -173,7 +173,7 @@ function takeOff(skewer: Grilling): Undercooked | Perfect | Burnt {
 
   // 判定の順番が重要。焦げを先に見ないと、「表は完璧・裏は焦げ」の串がPerfect に化けてしまう。
   if (isBurnt(skewer.heatSeconds, profile)) {
-    return { status: "burnt", kind: skewer.kind, heatSeconds: skewer.heatSeconds };
+    return { id: skewer.id, status: "burnt", kind: skewer.kind, heatSeconds: skewer.heatSeconds };
   }
 
   // 表裏両面とも焼けていないと完璧にはならない。
@@ -181,11 +181,11 @@ function takeOff(skewer: Grilling): Undercooked | Perfect | Burnt {
   if (front >= profile.perfectFromSeconds && back >= profile.perfectFromSeconds) {
     // seasoning: null は「まだ味付けしていない」。焼き上がった直後なので当然 null になる。
     // Perfect.seasoning を Seasoning だけにしていたら、この関数が塩かタレを勝手に決めなければならないので | null を入れた
-    return { status: "perfect", kind: skewer.kind, heatSeconds: skewer.heatSeconds, seasoning: null };
+    return { id: skewer.id, status: "perfect", kind: skewer.kind, heatSeconds: skewer.heatSeconds, seasoning: null };
   }
 
   // どちらにも当てはまらない = まだ焼けていない。焼き台に戻せる（Grillable に入っている）。
-  return { status: "undercooked", kind: skewer.kind, heatSeconds: skewer.heatSeconds };
+  return { id: skewer.id, status: "undercooked", kind: skewer.kind, heatSeconds: skewer.heatSeconds };
 }
 
 /**

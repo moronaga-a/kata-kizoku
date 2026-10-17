@@ -62,6 +62,7 @@ type CatRefusalReason = "negima" | "seasoned" | "not-ready";
  */
 type Raw = {
   /** 全状態が共通で持つフィールド */
+  readonly id: string;
   readonly status: "raw";
   /** 串の種類。生から焦げまで一度も変わらないので readonly */
   readonly kind: Kind;
@@ -77,6 +78,7 @@ type Raw = {
  * ラベルは takeOff() が heatSeconds と CookProfile から判定して決める。
  */
 type Grilling = {
+  readonly id: string;
   readonly status: "grilling";
   readonly kind: Kind;
   /** 今どちらの面が火に当たっているか。 */
@@ -95,6 +97,7 @@ type Grilling = {
  * 調理台の上にある串。生焼けだけが Grillable に入って焼き直せる
  */
 type Undercooked = {
+  readonly id: string;
   readonly status: "undercooked";
   readonly kind: Kind;
   /** 焼き加減をGrillingから引き継ぐ */
@@ -105,6 +108,7 @@ type Undercooked = {
  * 焼き上がり、味付けをする串
  */
 type Perfect = {
+  readonly id: string;
   readonly status: "perfect";
   readonly kind: Kind;
   /** 焼き加減をGrillingから引き継ぐ */
@@ -117,6 +121,7 @@ type Perfect = {
  * 焦げた串。もう焼き直せない。
  */
 type Burnt = {
+  readonly id: string;
   readonly status: "burnt";
   readonly kind: Kind;
   /** 焼き加減をGrillingから引き継ぐ */

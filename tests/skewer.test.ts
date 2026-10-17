@@ -24,6 +24,7 @@ import type {
 
 function grillingSkewer(kind: Kind, front: number, back: number): Grilling {
   return {
+    id: "test-id",
     status: "grilling",
     kind,
     heatSeconds: { front, back },
@@ -35,33 +36,33 @@ function grillingSkewer(kind: Kind, front: number, back: number): Grilling {
 // （isGrillable から "raw" を書き落としても何も言われなかった）、テストだけが防具になる。
 
 function rawSkewer(kind: Kind): Raw {
-  return { status: "raw", kind };
+  return { id: "test-id", status: "raw", kind };
 }
 
 function undercookedSkewer(kind: Kind): Undercooked {
-  return { status: "undercooked", kind, heatSeconds: { front: 10, back: 10 } };
+  return { id: "test-id", status: "undercooked", kind, heatSeconds: { front: 10, back: 10 } };
 }
 
 function perfectSkewer(kind: Kind, seasoning: Seasoning | null): Perfect {
-  return { status: "perfect", kind, heatSeconds: { front: 25, back: 25 }, seasoning };
+  return { id: "test-id", status: "perfect", kind, heatSeconds: { front: 25, back: 25 }, seasoning };
 }
 
 function burntSkewer(kind: Kind): Burnt {
-  return { status: "burnt", kind, heatSeconds: { front: 60, back: 60 } };
+  return { id: "test-id", status: "burnt", kind, heatSeconds: { front: 60, back: 60 } };
 }
 
 // serve に渡せるのは Seasoned だけ。perfectSkewer の戻り値は Perfect
 // （seasoning が Seasoning | null）なのでそのままでは渡せない。
 // 戻り値の型を Seasoned にすることで、味付け済みだと確定した串を作る。
 function seasonedSkewer(kind: Kind, seasoning: Seasoning): Seasoned {
-  return { status: "perfect", kind, heatSeconds: { front: 25, back: 25 }, seasoning };
+  return { id: "test-id", status: "perfect", kind, heatSeconds: { front: 25, back: 25 }, seasoning };
 }
 
 describe("串の一生", () => {
   it("生のももを両面25秒ずつ焼いて塩をふると、注文どおり120円で提供できる", () => {
     // もも は 25 秒で焼き上がり、50 秒で焦げる（PROFILES）。基本価格は 120 円（PRICES）。
     // 両面ちょうど 25 秒 = 焼けた瞬間なので、焼き加減は満点の 10 点になる。
-    const raw: Raw = { status: "raw", kind: "momo" };
+    const raw: Raw = { id: "test-id", status: "raw", kind: "momo" };
     const order = createOrder("momo", "salt", 0);
 
     // 焼き台に乗せる。生の串は焼き加減を持たないので 0 から始まる。
