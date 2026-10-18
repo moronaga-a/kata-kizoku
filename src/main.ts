@@ -287,12 +287,20 @@ function handleDrop(id: string, to: DropTarget, fromBin: boolean): void {
 
     case "fedCat":
       game.catFed += 1;
-      log("ok", "feedCat(skewer: CatSafe)", "にゃー。招き猫効果でお客さんが来ます");
       cat.accept();
       sound.chime();
       removeEntity(entity);
-      // 招き猫効果。次の注文を前倒しする
+      // 招き猫効果。次の注文を前倒しする。
+      // 伝票が上限まで埋まっていると、この時点では新しい客が出てこない。
+      // nextOrderAt は過去のまま残るので、1枚さばいて空いた瞬間に効く。
       game.nextOrderAt = Math.min(game.nextOrderAt, performance.now() + 300);
+      log(
+        "ok",
+        "feedCat(skewer: CatSafe)",
+        game.orders.length < MAX_ORDERS
+          ? "にゃー。招き猫効果でお客さんが来ます"
+          : "にゃー。伝票が埋まっているので、空いたらすぐ来ます",
+      );
       return;
 
     case "discarded":
