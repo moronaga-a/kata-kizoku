@@ -1,9 +1,11 @@
-import { createRaw, tick, flip, typeName, isGrillable, placeOnGrill } from "./domain/skewer";
+import { createRaw, tick, flip, typeName, catRefusal, assertNever } from "./domain/skewer";
 import { randomOrder } from "./domain/orders";
+import { drop } from "./game/drop";
 import { KINDS } from "./domain/types";
-import type { DropTarget, Order, Skewer } from "./domain/types";
+import type { DropResult, DropTarget, Order, Skewer } from "./domain/types";
 
 import { Sound } from "./ui/audio";
+import { Cat } from "./ui/cat";
 import { GrillCanvas, heatOfSlot, SLOT_COUNT } from "./ui/grill";
 import { Drag } from "./ui/drag";
 import {
@@ -103,9 +105,8 @@ const dom = {
 };
 
 const sound = new Sound();
+const cat = new Cat($("#cat"), $("#cat-bubble"));
 const grillCanvas = new GrillCanvas($canvas("#coals"), $canvas("#smoke"));
-// 猫のリアクション（src/ui/cat.ts）はフェーズ5でドロップ処理を書くときに繋ぐ。
-// catRefusal() の結果を受け取って喜んだり嫌がったりする役。
 
 // ---------- ログ ----------
 
@@ -217,67 +218,126 @@ const drag = new Drag(
 );
 
 /**
- * ⚠️ フェーズ5でここを src/game/drop.ts の drop(skewer, to) 呼び出しに差し替える。
+ * ドロップされたときの処理。判断は src/game/drop.ts の drop() が全部やる。
  *
- * いまは串を元の場所に戻して、どのドロップ先だったかをログに出すだけ。
- * 計画のフェーズ4の完了条件が「ドロップ以外の操作が画面で動く」なので、
- * ここで線を引いてある。
+ * ここがやるのは「結果を受け取って画面と音を変える」だけ。
+ * どの串がどこに行けるかというルールは一切持たない。
+ * result.effect で switch しているので、effect を増やすと
+ * ここの書き漏れがコンパイルエラーになる。
  */
 function handleDrop(id: string, to: DropTarget, fromBin: boolean): void {
   const entity = entities.get(id);
   if (!entity) return;
 
-  if (to.target === "none") {
-    if (fromBin) {
-      entities.delete(id);
-      entity.el.remove();
-      if (selectedId === id) select(null);
-      return;
-    }
-    returnToOrigin(entity);
+  const result = drop(entity.skewer, to, game.orders);
+
+  if (!result.ok) {
+    showFailure(result, entity);
+    settle(entity, fromBin);
     return;
   }
 
-  // 焼き台だけ先に繋いである。フェーズ4の完了条件が「焼ける様子が画面で動く」なので、
-  // 串が焼き台に乗らないと tick も flip も確かめられないため。
-  // フェーズ5で drop() を書いたら、この分岐ごと drop() の呼び出しに置き換える。
-  if (to.target === "grill") {
-    const skewer = entity.skewer;
-    if (skewer.status === "grilling") {
-      // すでに焼いている串を別の枠へ動かすだけ。状態は変わらない
-      putOnGrill(entity, to.slot);
+  switch (result.effect) {
+    case "none":
+      settle(entity, fromBin);
       return;
-    }
-    if (isGrillable(skewer)) {
-      entity.skewer = placeOnGrill(skewer);
-      log("ok", `placeOnGrill(skewer: ${typeName(skewer)}) → Grilling`);
-      putOnGrill(entity, to.slot);
+
+    case "placed": {
+      const before = typeName(entity.skewer);
+      entity.skewer = result.skewer;
+      // 焼き台のどの枠かは drop() ではなく DropTarget が持っている
+      const slot = to.target === "grill" ? to.slot : (entity.slot ?? 0);
+      if (before !== "Grilling") log("ok", `placeOnGrill(skewer: ${before}) → Grilling`);
+      putOnGrill(entity, slot);
       select(entity.skewer.id);
       return;
     }
-    typeError(skewer, "placeOnGrill", "Grillable", "焼き台に置けるのは Raw | Undercooked だけ");
-    returnToOrigin(entity);
-    return;
-  }
 
-  log("info", `// drop(skewer, { target: "${to.target}" }) は未実装です`, "フェーズ5で src/game/drop.ts を書くと動きます");
-  if (fromBin) {
-    putOnBoard(entity);
-    return;
+    case "takenOff":
+      entity.skewer = result.skewer;
+      log(
+        result.skewer.status === "perfect" ? "ok" : "info",
+        `takeOff(skewer) → ${typeName(result.skewer)}`,
+        result.skewer.status === "perfect" ? "いい焼き加減" : result.skewer.status === "burnt" ? "焼きすぎ" : "まだ生焼け",
+      );
+      putOnBoard(entity);
+      select(entity.skewer.id);
+      return;
+
+    case "seasoned":
+      entity.skewer = result.skewer;
+      log("ok", `season(skewer, "${result.skewer.seasoning}") → Seasoned`);
+      sound.flip();
+      putOnBoard(entity);
+      select(entity.skewer.id);
+      return;
+
+    case "served": {
+      game.score += result.revenue;
+      game.served += 1;
+      // 満たされた伝票を下げる
+      if (to.target === "order") {
+        game.orders = game.orders.filter((o) => o.id !== to.orderId);
+      }
+      log("ok", `serve(skewer, order) → +${result.revenue}円`, `焼き加減 ${result.quality.toFixed(1)} 点`);
+      sound.chime();
+      removeEntity(entity);
+      return;
+    }
+
+    case "fedCat":
+      game.catFed += 1;
+      log("ok", "feedCat(skewer: CatSafe)", "にゃー。招き猫効果でお客さんが来ます");
+      cat.accept();
+      sound.chime();
+      removeEntity(entity);
+      // 招き猫効果。次の注文を前倒しする
+      game.nextOrderAt = Math.min(game.nextOrderAt, performance.now() + 300);
+      return;
+
+    case "discarded":
+      log("info", `discard(skewer: ${typeName(entity.skewer)})`, entity.skewer.status === "burnt" ? undefined : "もったいない…");
+      removeEntity(entity);
+      return;
+
+    default:
+      return assertNever(result);
   }
-  returnToOrigin(entity);
 }
 
-/**
- * 型が合わないときのログ。コンパイラの言い回しを真似ている。
- *
- * フェーズ5では drop() が DropResult の { reason: "type-error", fn, actual, expected } を
- * 返すので、その値からこの文面を組み立てる形になる。
- */
-function typeError(skewer: Skewer, fn: string, expected: string, note: string): void {
-  log("error", `${fn}: 型 '${typeName(skewer)}' の引数を型 '${expected}' のパラメーターに割り当てることはできません。`, note);
+/** 失敗の見せ方。型エラーと注文違いで文面も演出も変える */
+function showFailure(result: Extract<DropResult, { ok: false }>, entity: Entity): void {
   sound.buzz();
-  game.typeErrors += 1;
+  if (result.reason === "type-error") {
+    // コンパイラの言い回しをそのまま真似る。
+    // 本来ならコンパイルエラーになる操作を、ゲーム内で再現している。
+    log(
+      "error",
+      `${result.fn}: 型 '${result.actual}' の引数を型 '${result.expected}' のパラメーターに割り当てることはできません。`,
+    );
+    game.typeErrors += 1;
+    if (result.fn === "feedCat") {
+      // 猫のセリフは DropResult には乗っていないので、ここで改めて理由を聞く。
+      // catRefusal は "negima" を最優先し、焼き加減はまとめて "not-ready" にするので、
+      // 下ろす前の串で聞いても答えは変わらない。
+      cat.refuse(catRefusal(entity.skewer) ?? "not-ready");
+    }
+    return;
+  }
+  // 注文違い。型では判定できず、実行時に確かめるしかなかったほう
+  log("error", `ServeResult { ok: false, reason: "${result.mismatch}" }`, "注文と違います");
+}
+
+/** ドロップが実らなかったときの後始末。箱から出したばかりの串はまな板に置く */
+function settle(entity: Entity, fromBin: boolean): void {
+  if (fromBin) putOnBoard(entity);
+  else returnToOrigin(entity);
+}
+
+function removeEntity(entity: Entity): void {
+  entity.el.remove();
+  entities.delete(entity.skewer.id);
+  if (selectedId === entity.skewer.id) select(null);
 }
 
 function returnToOrigin(entity: Entity): void {
