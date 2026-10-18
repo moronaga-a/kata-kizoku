@@ -14,7 +14,7 @@
   </head>
   <body>
     <header class="noren">
-      <h1 class="shop-name"><b>型貴族</b><small>かたきぞく</small></h1>
+      <h1 class="shop-name"><b>型貴族</b><small>かたきぞく〜型安全な焼き鳥屋〜</small></h1>
       <div class="hud">
         <div class="hud-item"><span>残り時間</span><output id="time">2:30</output></div>
         <div class="hud-item"><span>売上</span><output id="score">0</output></div>
@@ -34,7 +34,7 @@
       </section>
 
       <section class="grill-area">
-        <h2 class="area-title">焼き台（クリックで裏返す）</h2>
+        <h2 class="area-title">焼き台（クリックで裏返す）<code>placeOnGrill(Grillable)</code></h2>
         <div id="grill" class="grill" data-zone="grill">
           <div class="grill-box">
             <canvas id="coals" aria-hidden="true"></canvas>
@@ -49,13 +49,13 @@
 
       <section class="counter-area counter">
         <div id="board" class="board" data-zone="board">
-          <h2 class="area-title">まな板</h2>
+          <h2 class="area-title">まな板<code>takeOff(Grilling)</code></h2>
           <div id="board-items" class="board-items"></div>
         </div>
         <div class="tools">
-          <div class="tool" data-zone="sauce"><div class="pot"></div>タレ壺<small>season()</small></div>
-          <div class="tool" data-zone="salt"><div class="salt-box"></div>塩<small>season()</small></div>
-          <div class="tool" data-zone="trash"><div class="bucket"></div>捨てる<small>discard()</small></div>
+          <div class="tool" data-zone="sauce"><div class="pot"></div>タレ壺<small>season(Unseasoned)</small></div>
+          <div class="tool" data-zone="salt"><div class="salt-box"></div>塩<small>season(Unseasoned)</small></div>
+          <div class="tool" data-zone="trash"><div class="bucket"></div>捨てる<small>discard(Skewer)</small></div>
           <div class="tool cat-tool" data-zone="cat">
             <div id="cat" class="cat" aria-hidden="true">
               <span id="cat-bubble" class="cat-bubble"></span>
@@ -63,7 +63,7 @@
               <i class="head"><i class="eye eye-l"></i><i class="eye eye-r"></i></i>
               <i class="body"></i><i class="tail"></i>
             </div>
-            猫にあげる<small>feedCat()</small>
+            猫にあげる<small>feedCat(CatSafe)</small>
           </div>
         </div>
       </section>
@@ -100,14 +100,14 @@ function serve(s: Seasoned, o: Order): ServeResult;</pre>
         <h2 id="start-title">型貴族</h2>
         <p>串の状態はすべて型で管理されています。型が合わない操作をすると、コンパイラに叱られます。</p>
         <ol class="steps">
-          <li>左の箱から生串をドラッグして焼き台へ <code>placeOnGrill()</code></li>
-          <li>串をクリックして裏返しながら両面を焼く <code>flip()</code></li>
-          <li>ゲージが緑の帯に入ったら、まな板へ下ろす <code>takeOff()</code></li>
-          <li>タレ壺か塩にドラッグして味付け <code>season()</code></li>
-          <li>注文伝票にドラッグして提供 <code>serve()</code></li>
+          <li>左の箱から生串をドラッグして焼き台へ</li>
+          <li>串をクリックして裏返しながら両面を焼く</li>
+          <li>ゲージが緑の帯に入ったら、まな板へ下ろす</li>
+          <li>タレ壺か塩にドラッグして味付け</li>
+          <li>注文伝票にドラッグして提供</li>
         </ol>
         <p>
-          焼き台は真ん中ほど火が強くなります。味付け前の焼き上がりを猫にあげると、招き猫効果でお客さんがすぐ来ます（ねぎは猫に毒なので、ねぎまはあげられません）。制限時間は
+          焼き台は真ん中ほど火が強くなります。味付け前の焼き上がりを猫にあげると、招き猫効果でお客さんがすぐ来ます（ねぎまは毒なのであげられません）。制限時間は
           2 分 30 秒です。
         </p>
         <button id="start-btn" class="primary" type="button">開店する</button>

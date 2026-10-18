@@ -90,6 +90,12 @@ button { font: inherit; }
 .counter-area { grid-area: counter; }
 .types-area { grid-area: types; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
 .area-title { font-size: 13px; color: var(--muted); margin: 0 0 6px; font-weight: 700; }
+/* 見出しに添える、そのドロップ先が受け取れる型。
+   道具の <small> と揃えて、画面上のどこに落とすときも「関数に値を渡す」ように見せる */
+.area-title code {
+  font-family: var(--f-code); font-weight: 400; font-size: 11.5px;
+  margin-left: 8px; opacity: 0.8;
+}
 
 @media (max-width: 900px) {
   .shop {
@@ -210,7 +216,23 @@ button { font: inherit; }
 }
 .piece { position: relative; width: 100%; height: calc(var(--sk-w) * 0.66); border-radius: 38% 42% 40% 36%; box-shadow: inset -3px -4px 0 rgba(0,0,0,0.12); }
 .piece-negi { width: 78%; height: calc(var(--sk-w) * 0.5); border-radius: 30%; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.1); }
-.piece-kawa { width: 96%; height: calc(var(--sk-w) * 0.46); border-radius: 50% 30% 50% 30% / 60% 40% 60% 40%; }
+/* かわ。ももと見分けるために、薄くて波打った形にシワを重ねる。
+   色はインラインの background-color で入るので、ここでは background-image だけを使う。 */
+.piece-kawa {
+  width: 96%;
+  height: calc(var(--sk-w) * 0.42);
+  border-radius: 60% 40% 55% 45% / 70% 30% 70% 30%;
+  background-image:
+    repeating-linear-gradient(74deg, transparent 0 3px, rgba(80,45,18,0.26) 3px 4.5px),
+    repeating-linear-gradient(-66deg, transparent 0 5px, rgba(255,243,214,0.2) 5px 6.2px);
+  box-shadow:
+    inset 0 -3px 0 rgba(0,0,0,0.2),
+    inset 0 2px 0 rgba(255,255,255,0.16);
+}
+/* 5枚が同じ形に並ぶと作り物っぽいので、1枚ごとに崩す */
+.piece-kawa:nth-child(2n) { border-radius: 40% 60% 45% 55% / 30% 70% 30% 70%; transform: scaleX(-1); }
+.piece-kawa:nth-child(3n) { height: calc(var(--sk-w) * 0.5); }
+.piece-kawa:nth-child(5n) { width: 88%; }
 .piece::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; opacity: var(--mark);
   background: repeating-linear-gradient(180deg, transparent 0 7px, rgba(40,20,10,0.55) 7px 10px);

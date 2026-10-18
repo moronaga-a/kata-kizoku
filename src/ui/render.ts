@@ -84,7 +84,9 @@ function rgb(c: Rgb): string {
 const COLOR: Record<PieceType, (t: number) => string> = {
   meat: ramp([[0, "#eea394"], [0.3, "#ecc3a2"], [0.6, "#cf924f"], [0.84, "#98582b"], [1, "#3b2720"]]),
   kawa: ramp([[0, "#f3ddc5"], [0.3, "#f0d098"], [0.6, "#dca25a"], [0.84, "#a8672c"], [1, "#3d2920"]]),
-  negi: ramp([[0, "#e7eed2"], [0.38, "#e4ddb0"], [0.66, "#c9a868"], [0.86, "#6e5230"], [1, "#35271f"]]),
+  // ねぎは緑を強めに、しかも焼いても後半まで緑が残るようにしてある。
+  // 肉と同じカーブだと焼けた途中で見分けがつかなくなるため。
+  negi: ramp([[0, "#7fb63f"], [0.45, "#93b94d"], [0.72, "#b09a44"], [0.88, "#6e5230"], [1, "#35271f"]]),
 };
 
 /** 串の DOM を組み立てる。中身の更新は renderSkewer が受け持つ */
@@ -154,7 +156,9 @@ function renderSkewer(el: HTMLElement, skewer: Skewer, selected: boolean): void 
   const pieceEls = el.querySelectorAll<HTMLElement>(".piece");
   types.forEach((type, i) => {
     const pieceEl = pieceEls[i];
-    if (pieceEl) pieceEl.style.background = COLOR[type](doneness);
+    // background ではなく backgroundColor を指定する。
+    // 一括指定だと CSS 側の background-image（かわのシワ）を消してしまうため。
+    if (pieceEl) pieceEl.style.backgroundColor = COLOR[type](doneness);
   });
   // 焼き目（縞模様）は半分くらい焼けてから出す
   el.style.setProperty("--mark", String(clamp01((doneness - 0.35) / 0.45)));

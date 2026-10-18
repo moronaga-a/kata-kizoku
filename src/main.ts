@@ -296,7 +296,16 @@ function handleDrop(id: string, to: DropTarget, fromBin: boolean): void {
       return;
 
     case "discarded":
-      log("info", `discard(skewer: ${typeName(entity.skewer)})`, entity.skewer.status === "burnt" ? undefined : "もったいない…");
+      // ゴミ箱だけが Skewer（全状態）を受け取る。他のドロップ先は型で絞られているので、
+      // 焦げた串の行き先がここしかないのは「Burnt を受け取る関数が他にない」ということ。
+      // 焦げたときだけその説明を出す。毎回出すとうるさいので。
+      log(
+        "info",
+        `discard(skewer: ${typeName(entity.skewer)})`,
+        entity.skewer.status === "burnt"
+          ? "Burnt を受け取るのは Skewer を取る discard だけ"
+          : "お残しは許しまへんで〜",
+      );
       removeEntity(entity);
       return;
 
