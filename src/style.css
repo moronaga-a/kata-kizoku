@@ -81,11 +81,14 @@ button { font: inherit; }
 .hud-item span { font-size: 12px; opacity: 0.7; }
 .hud-item output { font-family: var(--f-display); font-size: 24px; font-variant-numeric: tabular-nums; }
 .hud-item.hurry output { color: #ffb08a; }
-.mute {
+.hud-btn {
   background: transparent; color: var(--noren-ink);
   border: 1px solid rgba(244,234,214,0.4); border-radius: 999px;
   padding: 4px 14px; font-size: 13px; cursor: pointer;
 }
+.hud-btn[aria-pressed="true"] { background: rgba(244,234,214,0.18); }
+/* 一時停止中は時間が止まっていることを目で分かるようにする */
+body.paused .hud-item output { opacity: 0.45; }
 
 /* ---------- レイアウト ---------- */
 .shop {
