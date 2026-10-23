@@ -11,6 +11,11 @@
   --noren-ink: #f4ead6;
   --ember: #f07a2e;
   --paper: #fbf5e8;
+  /* 串まわり。ダークテーマで差し替えるので変数にしてある */
+  --stick: #d9c08b;
+  --stick-grip: #c9ac72;
+  /* ネタ1つ1つの輪郭。隣のネタとの境目と、背景からの浮きを作る */
+  --piece-edge: rgba(45, 25, 10, 0.28);
   --code-bg: #1c2340;
   --code-ink: #e6e0d2;
   --code-muted: #8a91ad;
@@ -25,15 +30,25 @@
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+/* ダークテーマ。まな板と串の輪郭まで差し替えないと、暗い背景で串が沈んで
+   ねぎま・もも・かわの区別がつかなくなる。
+   2箇所に同じ値を書いているのは、OS の設定（media query）と
+   明示的な切り替え（data-theme）の両方を効かせるため。 */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #1d1815; --surface: #29221e; --ink: #efe5d5; --muted: #a8998a; --line: #463a31;
     --wood: #5b4535; --wood-dark: #3f3027; --paper: #f3e9d4;
+    --board: #a88a5f;
+    --stick: #c7ad78; --stick-grip: #b0945f;
+    --piece-edge: rgba(0, 0, 0, 0.55);
   }
 }
 :root[data-theme="dark"] {
   --bg: #1d1815; --surface: #29221e; --ink: #efe5d5; --muted: #a8998a; --line: #463a31;
   --wood: #5b4535; --wood-dark: #3f3027; --paper: #f3e9d4;
+  --board: #a88a5f;
+  --stick: #c7ad78; --stick-grip: #b0945f;
+  --piece-edge: rgba(0, 0, 0, 0.55);
 }
 html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
 *, *::before, *::after { box-sizing: border-box; }
@@ -66,11 +81,14 @@ button { font: inherit; }
 .hud-item span { font-size: 12px; opacity: 0.7; }
 .hud-item output { font-family: var(--f-display); font-size: 24px; font-variant-numeric: tabular-nums; }
 .hud-item.hurry output { color: #ffb08a; }
-.mute {
+.hud-btn {
   background: transparent; color: var(--noren-ink);
   border: 1px solid rgba(244,234,214,0.4); border-radius: 999px;
   padding: 4px 14px; font-size: 13px; cursor: pointer;
 }
+.hud-btn[aria-pressed="true"] { background: rgba(244,234,214,0.18); }
+/* 一時停止中は時間が止まっていることを目で分かるようにする */
+body.paused .hud-item output { opacity: 0.45; }
 
 /* ---------- レイアウト ---------- */
 .shop {
@@ -204,18 +222,29 @@ button { font: inherit; }
 .grill-bed .skewer { position: absolute; top: -8px; transform: translateX(-50%); }
 .stick {
   position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; transform: translateX(-50%);
-  background: #d9c08b; border-radius: 2px;
+  background: var(--stick); border-radius: 2px;
 }
 .stick::after {
   content: ""; position: absolute; left: 50%; bottom: 0; width: 11px; height: 30%;
-  transform: translateX(-50%); background: linear-gradient(90deg, #c9ac72, #e3cc98, #c9ac72); border-radius: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, var(--stick-grip), var(--stick), var(--stick-grip));
+  border-radius: 2px;
 }
 .pieces {
   position: absolute; left: 0; right: 0; top: 4px;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
 }
-.piece { position: relative; width: 100%; height: calc(var(--sk-w) * 0.66); border-radius: 38% 42% 40% 36%; box-shadow: inset -3px -4px 0 rgba(0,0,0,0.12); }
-.piece-negi { width: 78%; height: calc(var(--sk-w) * 0.5); border-radius: 30%; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.1); }
+/* 外側の 0 0 0 1px が輪郭。隣のネタとの境目を作り、背景から浮かせる。
+   暗い背景だと色の差だけでは形が読めないので、ダークテーマでは濃くしている。 */
+.piece {
+  position: relative; width: 100%; height: calc(var(--sk-w) * 0.66);
+  border-radius: 38% 42% 40% 36%;
+  box-shadow: inset -3px -4px 0 rgba(0,0,0,0.12), 0 0 0 1px var(--piece-edge);
+}
+.piece-negi {
+  width: 78%; height: calc(var(--sk-w) * 0.5); border-radius: 30%;
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,0.1), 0 0 0 1px var(--piece-edge);
+}
 /* かわ。ももと見分けるために、薄くて波打った形にシワを重ねる。
    色はインラインの background-color で入るので、ここでは background-image だけを使う。 */
 .piece-kawa {
@@ -227,7 +256,8 @@ button { font: inherit; }
     repeating-linear-gradient(-66deg, transparent 0 5px, rgba(255,243,214,0.2) 5px 6.2px);
   box-shadow:
     inset 0 -3px 0 rgba(0,0,0,0.2),
-    inset 0 2px 0 rgba(255,255,255,0.16);
+    inset 0 2px 0 rgba(255,255,255,0.16),
+    0 0 0 1px var(--piece-edge);
 }
 /* 5枚が同じ形に並ぶと作り物っぽいので、1枚ごとに崩す */
 .piece-kawa:nth-child(2n) { border-radius: 40% 60% 45% 55% / 30% 70% 30% 70%; transform: scaleX(-1); }
@@ -251,7 +281,14 @@ button { font: inherit; }
   background-size: 12px 10px;
 }
 .skewer[data-status="burnt"] .pieces { filter: saturate(0.4); }
-.skewer.selected .pieces { filter: drop-shadow(0 0 2px var(--ember)) drop-shadow(0 0 1px #fff); }
+/* 選択中。暗い背景では薄い光だと気づけないので、二重に広げてから白で縁取る */
+.skewer.selected .pieces {
+  filter:
+    drop-shadow(0 0 2px #fff)
+    drop-shadow(0 0 4px var(--ember))
+    drop-shadow(0 0 9px var(--ember));
+}
+.skewer.selected .stick { background: var(--ember); }
 .skewer.flipping .pieces { animation: flip 260ms ease; }
 @keyframes flip { 50% { transform: scaleX(0.08); } }
 

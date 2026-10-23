@@ -49,6 +49,8 @@ let selectedId: string | null = null;
  */
 type GameState = {
   running: boolean;
+  /** 一時停止中。型ビューをじっくり見るための機能なので、見る・選ぶ・触るは止めない */
+  paused: boolean;
   timeLeft: number;
   score: number;
   served: number;
@@ -61,6 +63,7 @@ type GameState = {
 
 const game: GameState = {
   running: false,
+  paused: false,
   timeLeft: ROUND_SECONDS,
   score: 0,
   served: 0,
@@ -95,6 +98,7 @@ const dom = {
   time: $("#time"),
   score: $("#score"),
   mute: $("#mute"),
+  pause: $("#pause"),
   heatScale: $("#heat-scale"),
   toast: $("#toast"),
   start: $("#start-overlay"),
@@ -370,11 +374,41 @@ function frame(nowMs: number): void {
   const delta = lastFrame === 0 ? 0 : Math.min(0.1, (nowMs - lastFrame) / 1000);
   lastFrame = nowMs;
 
-  if (game.running && delta > 0) {
+  const active = game.running && !game.paused;
+  if (active && delta > 0) {
     advance(delta, nowMs);
   }
-  grillCanvas.draw(nowMs, delta);
+  // 炭火は止めずにゆらがせたままにする。煙だけ delta 0 で止める
+  grillCanvas.draw(nowMs, active ? delta : 0);
   requestAnimationFrame(frame);
+}
+
+let pausedAt = 0;
+
+/**
+ * 一時停止。型ビューをじっくり読むための機能なので、止めるのは時間だけ。
+ * 串を選ぶ・ドラッグする・裏返すはそのままできる。
+ *
+ * 注文の期限は placedAt（実時刻）との差で測っているので、
+ * 止めている間に実時刻だけが進むと、再開した瞬間に全部時間切れになる。
+ * 再開時に止まっていた分だけ placedAt と nextOrderAt を前にずらして辻褄を合わせる。
+ */
+function setPaused(next: boolean): void {
+  if (!game.running || game.paused === next) return;
+  game.paused = next;
+
+  if (next) {
+    pausedAt = performance.now();
+    sound.setSizzle(0);
+  } else {
+    const stoppedFor = performance.now() - pausedAt;
+    game.orders = game.orders.map((order) => ({ ...order, placedAt: order.placedAt + stoppedFor }));
+    game.nextOrderAt += stoppedFor;
+  }
+
+  dom.pause.textContent = next ? "再開" : "一時停止";
+  dom.pause.setAttribute("aria-pressed", String(next));
+  document.body.classList.toggle("paused", next);
 }
 
 function advance(delta: number, nowMs: number): void {
@@ -434,7 +468,13 @@ function buildBins(): void {
     const bin = document.createElement("div");
     bin.className = "bin";
     bin.dataset["kind"] = kind;
-    const sample = buildSkewerEl(createRaw(kind));
+    // buildSkewerEl は DOM の骨組みを作るだけで、ネタの色は入れない。
+    // 色を入れているのは renderSkewer なので、これを呼ばないと
+    // ネタが透明のまま（木の背景が透けて見える）になる。
+    // 焼き台に置いた直後の生串と同じ見た目にするため、ここでも呼ぶ。
+    const skewer = createRaw(kind);
+    const sample = buildSkewerEl(skewer);
+    renderSkewer(sample, skewer, false);
     sample.classList.add("sample");
     const label = document.createElement("span");
     label.className = "bin-label";
@@ -462,6 +502,11 @@ function start(): void {
   dom.orders.innerHTML = "";
 
   game.running = true;
+  game.paused = false;
+  dom.pause.textContent = "一時停止";
+  dom.pause.setAttribute("aria-pressed", "false");
+  document.body.classList.remove("paused");
+
   game.timeLeft = ROUND_SECONDS;
   game.score = 0;
   game.served = 0;
@@ -505,6 +550,14 @@ function main(): void {
   window.addEventListener("resize", () => grillCanvas.resize());
   dom.startBtn.addEventListener("click", start);
   dom.againBtn.addEventListener("click", start);
+  dom.pause.addEventListener("click", () => setPaused(!game.paused));
+  // Space でも止められるようにする。型ビューを読みながら片手で押せるほうが楽なので
+  window.addEventListener("keydown", (ev) => {
+    if (ev.code !== "Space" || ev.repeat) return;
+    if (ev.target instanceof HTMLButtonElement) return; // ボタン上の Space は本来の動作に任せる
+    ev.preventDefault();
+    setPaused(!game.paused);
+  });
   dom.mute.addEventListener("click", () => {
     const next = !sound.isMuted();
     sound.setMuted(next);
